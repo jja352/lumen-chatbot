@@ -112,9 +112,12 @@ export async function streamChatResponse({
     window.clearTimeout(timeoutId);
     signal?.removeEventListener('abort', handleCallerAbort);
 
-    let errorMessage = `Request failed with status ${response.status}.`;
-    let errorCode = 'HTTP_ERROR';
-    let retryable = response.status >= 500 || response.status === 429;
+    let errorMessage =
+      response.status === 404
+        ? 'Chat API endpoint (/api/chat) was not found. Please refresh the page or ensure the app server is running.'
+        : `Request failed with status ${response.status}.`;
+    let errorCode = response.status === 404 ? 'ENDPOINT_NOT_FOUND' : 'HTTP_ERROR';
+    let retryable = response.status >= 500 || response.status === 429 || response.status === 404;
 
     try {
       const payload = (await response.json()) as {
@@ -126,7 +129,7 @@ export async function streamChatResponse({
       if (payload.code) errorCode = payload.code;
       if (typeof payload.retryable === 'boolean') retryable = payload.retryable;
     } catch {
-      // Fallback to generic message if response body is not JSON
+      // Non-JSON response body (for example static fallback or proxy 404)
     }
 
     throw new ChatApiError(errorMessage, errorCode, response.status, retryable);
